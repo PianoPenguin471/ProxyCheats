@@ -1,4 +1,5 @@
 import json
+from modules import NoWeather
 
 import quarry.types.buffer
 import requests
@@ -16,6 +17,8 @@ ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ4dWlkIjoiMjUzNTQxMDUxNTM2OTMwNSIsImFnZyI
 SERVER_IP = "coldpvp.com"
 SERVER_PORT = 25565
 has_enabled_xray=False
+
+no_weather = NoWeather()
 
 
 class MyUpstream(Upstream):
@@ -146,8 +149,22 @@ class MyBridge(Bridge):
 
     def packet_downstream_game_event(self, buff: Buffer1_7):
         # https://wiki.vg/Protocol#Game_Event
-        buff.save()
-        print(buff.unpack("B"))
+        event = buff.read(1)
+        print(event)
+        if no_weather.on_game_event(buff, event): return
+        if event == 0:
+            print("No spawnpoint")
+        elif event == 1:
+            print("End raining")
+        elif event == 2:
+            print("Start raining")
+        elif event == 6:
+            print("Arrow hit")
+        elif event == 11:
+            print("Immediate respawn changed")
+
+        buff.restore()
+        self.doenstream.send_packet("game_event", buff.read())
 
     def packet_downstream_plugin_message(self, buff: Buffer):
         buff.save()
