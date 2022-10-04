@@ -13,6 +13,6 @@ class Module:
 @dataclass
 class NoWeather(Module):
     def __init__(self) -> None:
-        super("NoWeather")
+        super("NoWeather")# TODO: Fix super call
     def on_game_event(self, buff: Buffer1_7, event) -> bool:
         return event == 2 # Cancel packet if event is to start raining
