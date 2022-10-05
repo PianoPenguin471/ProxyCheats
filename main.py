@@ -16,9 +16,9 @@ from twisted.internet import reactor
 ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ4dWlkIjoiMjUzNTQxMDUxNTM2OTMwNSIsImFnZyI6IkFkdWx0Iiwic3ViIjoiNzM2OTM1NWItNzVjNy00ZmFjLTk2NGQtNTUxMmI1ZDc4NDEzIiwibmJmIjoxNjYyNDg4ODY5LCJhdXRoIjoiWEJPWCIsInJvbGVzIjpbXSwiaXNzIjoiYXV0aGVudGljYXRpb24iLCJleHAiOjE2NjI1NzUyNjksImlhdCI6MTY2MjQ4ODg2OSwicGxhdGZvcm0iOiJVTktOT1dOIiwieXVpZCI6IjcxZjgyYmI1ODI2NDY4OTA0M2JkMTQwYjkzYzgwNmZjIn0.XTQ7gRXOlcnzFqMGo7CpYUU1tZFX95S_FIiqQsJ2ym4'
 SERVER_IP = input("Server Ip: ")
 SERVER_PORT = 25565
-has_enabled_xray=False
 
 no_weather = NoWeather()
+xray = Xray()
 
 
 class MyUpstream(Upstream):
@@ -169,7 +169,7 @@ class MyBridge(Bridge):
     def packet_downstream_plugin_message(self, buff: Buffer):
         buff.save()
         channel = buff.unpack_string()
-        print("Downstream channel: " + channel)
+        if xray.on_downstream_plugin_message(): return
         buff.restore()
         print(buff.read())
         print()
@@ -187,7 +187,6 @@ class MyBridge(Bridge):
         # print(buff.unpack_array(), end="\n\n\n")
         buff.restore()
         self.upstream.send_packet("plugin_message", buff.read())
-        global has_enabled_xray
         # Todo send plugin message packet to turn on the X-ray staff module in lunar client
         """
         Lunar client code for the message
@@ -229,27 +228,16 @@ class MyDownstreamFactory(DownstreamFactory):
     motd = f"Proxy Server for {SERVER_IP}:{SERVER_PORT}"
 
 
-def main(argv):
-    # Parse options
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-a1", "--listen-host1", default="",
-                        help="address to listen on")
-    parser.add_argument("-p1", "--listen-port1", default=25565,
-                        type=int, help="port to listen on")
-    args = parser.parse_args(argv)
-
+def main():
     # Create factory
     factory = MyDownstreamFactory()
     factory.connect_host = SERVER_IP
     factory.connect_port = SERVER_PORT
 
     # Listen
-    factory.listen(args.listen_host1, args.listen_port1)
+    factory.listen("", 25565)
     reactor.run()
 
 
 if __name__ == "__main__":
-    import sys
-
-    main(sys.argv[1:])
+    main()
