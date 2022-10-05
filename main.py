@@ -14,7 +14,7 @@ from quarry.net import auth, crypto
 from twisted.internet import reactor
 
 ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ4dWlkIjoiMjUzNTQxMDUxNTM2OTMwNSIsImFnZyI6IkFkdWx0Iiwic3ViIjoiNzM2OTM1NWItNzVjNy00ZmFjLTk2NGQtNTUxMmI1ZDc4NDEzIiwibmJmIjoxNjYyNDg4ODY5LCJhdXRoIjoiWEJPWCIsInJvbGVzIjpbXSwiaXNzIjoiYXV0aGVudGljYXRpb24iLCJleHAiOjE2NjI1NzUyNjksImlhdCI6MTY2MjQ4ODg2OSwicGxhdGZvcm0iOiJVTktOT1dOIiwieXVpZCI6IjcxZjgyYmI1ODI2NDY4OTA0M2JkMTQwYjkzYzgwNmZjIn0.XTQ7gRXOlcnzFqMGo7CpYUU1tZFX95S_FIiqQsJ2ym4'
-SERVER_IP = "coldpvp.com"
+SERVER_IP = input("Server Ip: ")
 SERVER_PORT = 25565
 has_enabled_xray=False
 
