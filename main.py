@@ -6,13 +6,8 @@ import customtkinter
 import mojang
 from mojang import LoginFailure
 from quarry.net.ticker import Ticker
-from requests import JSONDecodeError
 
-from modules import NoWeather, Xray, Module, No_Fall, Blink
-import packet_handle
-import importlib
-
-import quarry.types.buffer
+from modules import NoWeather, Xray, Module, Blink, Packet
 import requests
 from quarry.net.protocol import ProtocolError
 from quarry.types.buffer import Buffer, Buffer1_7
@@ -23,16 +18,14 @@ from quarry.net.proxy import UpstreamFactory, Upstream, DownstreamFactory, Downs
 from quarry.net import auth, crypto
 from twisted.internet import reactor
 
-from packet_util import PlayerPosition, PlayerPositionLook, PlayerLook
-
 ACCESS_TOKEN = ''
 SERVER_IP = input("Server Ip: ")
 SERVER_PORT = 25565
 
 no_weather: NoWeather = None
 xray: Xray = None
-no_fall: No_Fall = None
 blink: Blink = None
+has_initialized_modules: bool = False
 
 ticker: Ticker = Ticker(logger=logging.Logger("tick_event"))
 
@@ -184,32 +177,19 @@ class MyBridge(Bridge):
         buff.restore()
         self.downstream.send_packet("game_event", buff.read())
 
-    def packet_upstream_player_look(self, buff: Buffer1_7):
-        buff.save()
-        if blink.enabled:
-            pitch, yaw, on_ground = buff.unpack("ff?")
-            blink.packet_list.append(PlayerLook(pitch, yaw, on_ground))
-            return
-        buff.restore()
-        self.upstream.send_packet("player_look", buff.read())
+    def packet_received(self, buff, direction, name):
+        global has_initialized_modules, no_weather, xray, blink
+        if not has_initialized_modules:
+            has_initialized_modules = True
+            print(self.downstream)
+            no_weather = NoWeather(self.downstream, self.upstream)
+            xray = Xray(self.downstream, self.upstream)
+            blink = Blink(self.downstream, self.upstream)
 
-    def packet_upstream_player_position_look(self, buff: Buffer1_7):
-        buff.save()
-        if blink.enabled:
-            x, y, z, pitch, yaw, on_ground = buff.unpack("dddff?")
-            blink.packet_list.append(PlayerPositionLook(x, y, z, pitch, yaw, on_ground))
+        if blink.enabled and not "chat" in name:
+            blink.packet_list.append(Packet(name, buff.read(), direction))
             return
-        buff.restore()
-        self.upstream.send_packet("player_position_look", buff.read())
-
-    def packet_upstream_player_position(self, buff: Buffer1_7):
-        buff.save()
-        if blink.enabled:
-            x, y, z, on_ground = buff.unpack("ddd?")
-            blink.packet_list.append(PlayerPosition(x, y, z, on_ground))
-            return
-        buff.restore()
-        self.upstream.send_packet("player_position", buff.read())
+        super().packet_received(buff, direction, name)
 
     def packet_upstream_chat_message(self, buff: Buffer1_7):
         buff.save()
@@ -223,8 +203,7 @@ class MyBridge(Bridge):
                 args = chat_message.split(" ")[1:]
                 print(f"CMD: {cmd}, args: {args}")
                 if "toggle" in cmd:
-                    global xray, no_weather, no_fall, blink
-                    print(Module.upstream)
+                    global xray, no_weather, blink
                     module: str = args[0]
                     if "xray" in module.lower():
                         xray.toggle()
@@ -232,9 +211,6 @@ class MyBridge(Bridge):
                     elif "noweather" in module.lower():
                         no_weather.toggle()
                         print(f"NoWeather toggled: {blink.enabled}")
-                    elif "nofall" in module.lower():
-                        no_fall.toggle()
-                        print(f"NoFall toggled: {blink.enabled}")
                     elif "blink" in module.lower():
                         blink.toggle()
                         print(f"Blink toggled: {blink.enabled}")
@@ -256,7 +232,8 @@ class MyBridge(Bridge):
             with open(local_path + "/TOKEN") as f:
                 client = mojang.Client(bearer_token=f.readline())
                 print("Logged In Successfully")
-                return auth.Profile("(skip)", client.bearer_token, client.get_profile().name, UUID.from_hex(client.get_profile().id))
+                return auth.Profile("(skip)", client.bearer_token, client.get_profile().name,
+                                    UUID.from_hex(client.get_profile().id))
         except LoginFailure:
             print("Invalid Token, Please log in again.")
             root = customtkinter.CTk()
@@ -272,13 +249,13 @@ class MyBridge(Bridge):
                 with open(local_path + "/TOKEN", 'w') as file:
                     file.write(new_client.bearer_token)
                 root.destroy()
-                return auth.Profile("(skip)", new_client.bearer_token, new_client.get_profile().name, new_client.get_profile().id)
+                return auth.Profile("(skip)", new_client.bearer_token, new_client.get_profile().name,
+                                    new_client.get_profile().id)
 
             login_button = customtkinter.CTkButton(master=root, text="Login", command=login_email_and_pass)
             login_button.grid(row=2, column=0, padx=20, pady=10)
 
             root.mainloop()
-
 
 
 class MyDownstreamFactory(DownstreamFactory):
@@ -289,14 +266,11 @@ class MyDownstreamFactory(DownstreamFactory):
 
 
 def main():
-    global no_weather, xray, no_fall, blink
+    global no_weather, xray, blink
     factory = MyDownstreamFactory()
     factory.connect_host = SERVER_IP
     factory.connect_port = SERVER_PORT
-    no_weather = NoWeather(factory.bridge_class.downstream, factory.bridge_class.upstream)
-    xray = Xray(factory.bridge_class.downstream, factory.bridge_class.upstream)
-    no_fall = No_Fall(factory.bridge_class.downstream, factory.bridge_class.upstream)
-    blink = Blink(factory.bridge_class.downstream, factory.bridge_class.upstream)
+
 
     # Listen
     factory.listen("", 25565)

@@ -1,10 +1,5 @@
-from dataclasses import dataclass
-from uuid import UUID
-import uuid
 from quarry.types.buffer import Buffer1_7
 from quarry.net.proxy import Downstream, Upstream
-
-from packet_util import PlayerPosition, PlayerPositionLook, PlayerLook
 
 
 class Module:
@@ -47,14 +42,16 @@ class Xray(Module):
         super().__init__("Xray", downstream, upstream, enabled)
 
     def on_enable(self) -> None:
-        Module.downstream.send_packet(
+        self.downstream.send_packet(
             "plugin_message",
             b'\x0elunarclient:pm\x0c\x04XRAY\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 
-class No_Fall(Module):
-    def __init__(self, downstream: Downstream, upstream: Upstream, enabled: bool = False) -> None:
-        super().__init__("NoFall", downstream, upstream, enabled)
+class Packet:
+    def __init__(self, type: str, data: bytes, direction):
+        self.type = type
+        self.data = data
+        self.direction = direction
 
 
 class Blink(Module):
@@ -63,20 +60,12 @@ class Blink(Module):
         self.packet_list: list = []
 
     def on_enable(self) -> None:
-        self.packet_list: list = []
+        self.packet_list: list[Packet] = []
 
     def on_disable(self) -> None:
         for packet in self.packet_list:
-            if isinstance(packet, PlayerPosition):
-                Module.upstream.send_packet("player_position", Buffer1_7.pack("ddd?", packet.x, packet.y, packet.z, packet.on_ground))
-            elif isinstance(packet, PlayerPositionLook):
-                Module.upstream.send_packet("player_position_look", Buffer1_7.pack("dddff?", packet.x, packet.y, packet.z, packet.pitch, packet.yaw, packet.on_ground))
-            elif isinstance(packet, PlayerLook):
-                Module.upstream.send_packet("player_look", Buffer1_7.pack("ff?", packet.pitch, packet.yaw, packet.on_ground))
-
-class Scaffold(Module):
-    def __init__(self, downstream: Downstream, upstream: Upstream, enabled: bool = False) -> None:
-        super().__init__("Scaffold", downstream, upstream, enabled)
-
-    def on_tick(self) -> None:
-        Module.upstream.send_packet()
+            print(packet.type)
+            if "down" in packet.direction:
+                self.downstream.send_packet(packet.type, packet.data)
+            elif "up" in packet.direction:
+                self.upstream.send_packet(packet.type, packet.data)
