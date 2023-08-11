@@ -64,7 +64,6 @@ class Blink(Module):
 
     def on_disable(self) -> None:
         for packet in self.packet_list:
-            print(packet.type)
             if "down" in packet.direction:
                 self.downstream.send_packet(packet.type, packet.data)
             elif "up" in packet.direction:

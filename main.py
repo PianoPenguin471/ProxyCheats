@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-
+from quarry.types.chat import Message
 import customtkinter
 import mojang
 from mojang import LoginFailure
@@ -19,7 +19,7 @@ from quarry.net import auth, crypto
 from twisted.internet import reactor
 
 ACCESS_TOKEN = ''
-SERVER_IP = input("Server Ip: ")
+SERVER_IP = "test.karhu.ac" #input("Server Ip: ")
 SERVER_PORT = 25565
 
 no_weather: NoWeather = None
@@ -28,6 +28,10 @@ blink: Blink = None
 has_initialized_modules: bool = False
 
 ticker: Ticker = Ticker(logger=logging.Logger("tick_event"))
+
+
+def send_message_to_client(downstream: Downstream, message_str: str):
+    print(message_str)
 
 
 class MyUpstream(Upstream):
@@ -191,31 +195,35 @@ class MyBridge(Bridge):
             return
         super().packet_received(buff, direction, name)
 
+    def packet_downstream_chat_message(self, buff: Buffer1_7):
+        buff.save()
+
+        message: Message = buff.unpack_chat()
+        print(message.to_string(False))
+
+        buff.restore()
+        self.downstream.send_packet("chat_message", buff.read())
+
     def packet_upstream_chat_message(self, buff: Buffer1_7):
         buff.save()
         try:
-
             chat_message = buff.unpack_string()
-            print(chat_message)
 
             if chat_message.startswith("."):
                 cmd = chat_message.split(" ")[0][1:]
                 args = chat_message.split(" ")[1:]
-                print(f"CMD: {cmd}, args: {args}")
                 if "toggle" in cmd:
                     global xray, no_weather, blink
                     module: str = args[0]
                     if "xray" in module.lower():
                         xray.toggle()
-                        print(f"Xray toggled: {blink.enabled}")
+                        send_message_to_client(self.downstream, f"Xray toggled: {xray.enabled}")
                     elif "noweather" in module.lower():
                         no_weather.toggle()
-                        print(f"NoWeather toggled: {blink.enabled}")
+                        send_message_to_client(self.downstream, f"No-Weather toggled: {no_weather.enabled}")
                     elif "blink" in module.lower():
                         blink.toggle()
-                        print(f"Blink toggled: {blink.enabled}")
-                    print(f"Toggling {args[0]}")
-
+                        send_message_to_client(self.downstream, f"Blink toggled: {blink.enabled}")
             else:
                 buff.restore()
                 self.upstream.send_packet("chat_message", buff.read())
@@ -270,7 +278,6 @@ def main():
     factory = MyDownstreamFactory()
     factory.connect_host = SERVER_IP
     factory.connect_port = SERVER_PORT
-
 
     # Listen
     factory.listen("", 25565)
