@@ -237,7 +237,7 @@ class MyBridge(Bridge):
         print("Making Profile")
         local_path = '/'.join(sys.argv[0].split("\\")[:-1])
         try:
-            with open(local_path + "/TOKEN") as f:
+            with open(local_path + "/TOKEN", "w+") as f:
                 client = mojang.Client(bearer_token=f.readline())
                 print("Logged In Successfully")
                 return auth.Profile("(skip)", client.bearer_token, client.get_profile().name,
